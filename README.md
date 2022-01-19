@@ -130,18 +130,18 @@ rfc822    Prints the value as a RFC822 date (for atom feeds, basically)
 
 Any other unknown filter will be trated as a date formatting pattern:
 
-- ```yyyyMMdd```: Prints the value as yyyyMMdd.
-- ```yyyy-MM-dd```: Prints the value as yyyy-MM-dd.
-- ...and so on.
+* yyyyMMdd: Prints the value as ```yyyyMMdd```.
+* yyyy-MM-dd: Prints the value as ```yyyy-MM-dd```.
+* ...and so on.
 
 ### About date values
 
 When using any of the date filters (```date```, ```rfc822``` and ```yyyyMMdd```) Clarin tries to parse the input value using one of the following formats:
 
-* ```yyyyMMdd```
-* ```yyyy-MM-dd```
-* ```yyyy.MM.dd```
-* ```yyyy/MM/dd```
+* yyyyMMdd
+* yyyy-MM-dd
+* yyyy.MM.dd
+* yyyy/MM/dd
 
 ### Create an index (aka 'index tags')
 
