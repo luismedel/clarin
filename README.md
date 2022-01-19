@@ -112,10 +112,10 @@ For this entry:
 
 Clarin expects some values to exists in order to work properly (but tries it's best to run ok if not present):
 
-* ```slug```: used to generate the output filename. If not present, Clarin tries to get it from the source filename.
-* ```category```: used for content filtering in the index tags.
-* ```date```: used for ordering in the index tags.
-* ```draft```: set to ```true``` if you want the entry to be ignored by Clarin.
+* slug: used to generate the output filename. If not present, Clarin tries to get it from the source filename.
+* category: used for content filtering in the index tags.
+* date: used for ordering in the index tags.
+* draft: set to ```true``` if you want the entry to be ignored by Clarin.
 
 ### Tag filters
 
