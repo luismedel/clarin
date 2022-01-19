@@ -24,7 +24,7 @@ jobs:
       run: dotnet test --no-build --verbosity normal
     - name: Publish-Windows
       run: dotnet publish -c Release -r win-x64 -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./win-x64
-    - uses: "marvinpinto/action-automatic-releases@latest"
+    - uses: "marvinpinto/action-automatic-releases@4edd7a5aabb1bc62e6dc99b3302d587bf3134e20"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         automatic_release_tag: "windows-latest"
@@ -34,7 +34,7 @@ jobs:
           ./win-x64/Clarin.exe
     - name: Publish-Linux
       run: dotnet publish -c Release -r linux-x64 -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./linux-x64
-    - uses: "marvinpinto/action-automatic-releases@latest"
+    - uses: "marvinpinto/action-automatic-releases@4edd7a5aabb1bc62e6dc99b3302d587bf3134e20"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         automatic_release_tag: "linux-latest"
@@ -44,7 +44,7 @@ jobs:
           ./linux-x64/Clarin
     - name: Publish-macOS
       run: dotnet publish -c Release -r osx-x64 -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./osx-x64
-    - uses: "marvinpinto/action-automatic-releases@latest"
+    - uses: "marvinpinto/action-automatic-releases@4edd7a5aabb1bc62e6dc99b3302d587bf3134e20"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         automatic_release_tag: "macos-latest"
