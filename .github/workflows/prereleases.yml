@@ -41,7 +41,7 @@ jobs:
         prerelease: true
         title: "Development Build"
         files: |
-          ./linux-x64/Clarin.exe
+          ./linux-x64/Clarin
     - name: Publish-macOS
       run: dotnet publish -c Release -r osx-x64 -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./osx-x64
     - uses: "marvinpinto/action-automatic-releases@latest"
@@ -51,4 +51,4 @@ jobs:
         prerelease: true
         title: "Development Build"
         files: |
-          ./osx-x64/Clarin.exe
+          ./osx-x64/Clarin
