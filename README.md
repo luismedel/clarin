@@ -108,7 +108,7 @@ For this entry:
 - The slug is {slug} (automatically generated if not present in metadata).
 - Is in the site {site.title}, at {site.url} (as you can see, you can use any field present in site.ini using the prefix 'site.').
 - Was generated on {sys.date|date} (sys.date is always the current date and time).
-``````
+```
 
 Clarin expects some values to exists in order to work properly (but tries it's best to run ok if not present):
 
