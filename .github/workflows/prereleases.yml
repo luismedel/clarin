@@ -1,0 +1,54 @@
+name: "Pre-releases"
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 6.0.x
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --no-restore 
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
+    - name: Publish-Windows
+      run: dotnet publish -c Release -r win-x64 -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./win-x64
+    - uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "windows-latest"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          ./win-x64/Clarin.exe
+    - name: Publish-Linux
+      run: dotnet publish -c Release -r linux-x64 -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./linux-x64
+    - uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "linux-latest"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          ./linux-x64/Clarin.exe
+    - name: Publish-macOS
+      run: dotnet publish -c Release -r osx-x64 -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./osx-x64
+    - uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "macos-latest"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          ./osx-x64/Clarin.exe
