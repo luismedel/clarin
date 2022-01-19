@@ -24,7 +24,7 @@ jobs:
     - name: Test
       run: dotnet test --no-build --verbosity normal
     - name: Publish
-      run: dotnet publish -c Release -r win-x64 -p:PublishReadyToRun=true -p:PublishTrimmed=true p:PublishDir=./publish --self-contained true
+      run: dotnet publish -c Release -r win-x64 -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./win-x64
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -32,4 +32,4 @@ jobs:
         prerelease: true
         title: "Development Build"
         files: |
-          ./publish/Clarin.exe
+          ./win-x64/Clarin.exe
