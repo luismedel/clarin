@@ -1,0 +1,25 @@
+---
+title = "Clarin example site"
+template = "page.html"
+---
+
+<div>
+	<header>
+		<p>{site.tagline}</p>
+	</header>
+
+	<img src="{site.url}img/logo-w480.png" />
+</div>
+
+<p>Example posts:</p>
+
+<ul>
+	{%index|blog|
+	<li>
+		<a href="{url}">{title}</a> {date|(yyyy.MM.dd)}
+		<br>{description}
+	</li>
+	%}
+</ul>
+
+<p>Also, feel free to subscribe to <a href="{site.url}atom.xml">my atom feed</a>.</p>

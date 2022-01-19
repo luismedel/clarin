@@ -5,36 +5,40 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Globalization;
+using System.Net.Http;
 
 namespace Clarin
 {
     static class Log
     {
-        public static void Indent () => System.Diagnostics.Debug.Indent ();
-        public static void Unindent () => System.Diagnostics.Debug.Unindent ();
-        public static void Info (string text) => System.Diagnostics.Debug.WriteLine (text);
-        public static void Warn (string text) => System.Diagnostics.Debug.WriteLine ("[WARN] " + text);
-        public static void Error (string text) => System.Diagnostics.Debug.WriteLine ("[ERROR] " + text);
+        public static void Indent () => System.Diagnostics.Trace.Indent ();
+        public static void Unindent () => System.Diagnostics.Trace.Unindent ();
+        public static void Info (string text) => System.Diagnostics.Trace.WriteLine (text);
+        public static void Warn (string text) => System.Diagnostics.Trace.WriteLine ("[WARN] " + text);
+        public static void Error (string text) => System.Diagnostics.Trace.WriteLine ("[ERROR] " + text);
     }
 
     class MetaDict
     {
+        public IEnumerable<string> Keys => _dict.Keys;
+
         public object this[string key]
         {
             private get => _dict.TryGetValue (key, out object v)
-                   ? (v is Func<string> fn) ? fn.Invoke () : v.ToString ()
+                   ? (v is Func<string> fn) ? fn.Invoke () : _rref.Replace (v.ToString (), m => this.Get (m.Groups[1].Value))
                    : null;
 
             set => _dict[key] = value;
         }
 
         public MetaDict ()
-        {
-            _dict["sys.date"] = new Func<string> (Sys_Date);
-        }
+        { }
+
+        public MetaDict (MetaDict other)
+            : this (other._dict)
+        { }
 
         public MetaDict (IDictionary<string, object> contents)
-            : this ()
         {
             foreach (var kv in contents)
                 _dict[kv.Key] = kv.Value;
@@ -48,9 +52,35 @@ namespace Clarin
                 _dict[prefix + kv.Key] = kv.Value;
         }
 
-        static string Sys_Date () => DateTime.Now.ToString ("yyyyMMddhhmmss");
+        static string SysDate () => DateTime.Now.ToString ("yyyyMMddhhmmss");
 
-        readonly Dictionary<string, object> _dict = new Dictionary<string, object> (StringComparer.InvariantCultureIgnoreCase);
+        readonly Dictionary<string, object> _dict = new Dictionary<string, object> (StringComparer.InvariantCultureIgnoreCase) {
+#pragma warning disable CS8974
+            { "sys.date", new Func<string> (SysDate) },
+#pragma warning restore CS8974
+        };
+
+        public static bool TryParseKeyValue (string s, out string key, out string value)
+        {
+            var m = _rkeyval.Match (s);
+            if (!m.Success)
+            {
+                key = value = String.Empty;
+                return false;
+            }
+
+            key = m.Groups[1].Value;
+            value = m.Groups[2].Value;
+            if ((value.EndsWith ('"') && value.EndsWith ('"'))
+             || (value.EndsWith ('\'') && value.EndsWith ('\'')))
+                value = value.Substring (1, value.Length - 2);
+
+            return true;
+        }
+
+        static readonly Regex _rref = new Regex (@"\$([a-zA-Z0-9-_.]+)");
+
+        static readonly Regex _rkeyval = new Regex (@"^\s*([a-zA-Z0-9-_]+)\s*\=\s*(.+)$", RegexOptions.Compiled);
     }
 
     class FileInfo
@@ -79,7 +109,7 @@ namespace Clarin
         public FileInfo (Site site, string path)
         {
             this.Site = site;
-            this.Path = path;
+            this.Path = path.EndsWith ('/') ? path.Substring (0, path.Length - 1) : path;
 
             if (this.IsContent)
             {
@@ -88,7 +118,18 @@ namespace Clarin
             }
         }
 
-        string GetValue (object v) => (v is Func<string> fn) ? fn.Invoke () : v.ToString ();
+        string Slugify (string s)
+        {
+            Dictionary<char, char> replacements = new Dictionary<char, char> {
+                { 'á', 'a' }, { 'é', 'e' }, { 'í', 'i' },
+                { 'ó', 'o' }, { 'ú', 'u' }, { 'ñ', 'n' },
+            };
+
+            s = s.ToLower ();
+            foreach (var kv in replacements)
+                s = s.Replace (kv.Key, kv.Value);
+            return Regex.Replace (s, @"[^a-z0-9-_]+", "-");
+        }
 
         void Parse ()
         {
@@ -102,32 +143,40 @@ namespace Clarin
                 {
                     while (true)
                     {
-                        var m = _rkeyval.Match (sr.ReadLine ().Trim ());
-                        if (!m.Success)
+                        var line = sr.ReadLine ().Trim ();
+                        if (line == "---")
                             break;
 
-                        _meta[m.Groups[1].Value] = m.Groups[2].Value.Trim ();
+                        if (MetaDict.TryParseKeyValue (line, out var k, out var v))
+                            _meta[k] = v;
                     }
 
                     _meta["content"] = sr.ReadToEnd ();
                 }
             }
 
-            if (string.IsNullOrEmpty (_meta.Get ("slug")))
+            if (string.IsNullOrEmpty (_meta.Get ("slug")) || string.IsNullOrEmpty (_meta.Get ("date")))
             {
-                // Extract the slug (we expect the filename to be yyyymmdd-title)
-                var parts = System.IO.Path.GetFileNameWithoutExtension (Path).Split (new char[] { '-' }, 2);
-                _meta["slug"] = parts.Length == 2 ? parts[1] : parts[0];
+                // Try to extract slug and date from the filename (we expect it to be 'date-title.ext')
+                var m = Regex.Match (System.IO.Path.GetFileNameWithoutExtension (Path), @"^(\d+)\-(.+)$");
+                if (m.Success)
+                {
+                    _meta["date"] = m.Groups[1].Value;
+                    _meta["slug"] = Slugify (m.Groups[2].Value);
+                }
+                else
+                    _meta["slug"] = Slugify (System.IO.Path.GetFileNameWithoutExtension (Path));
             }
 
+            _meta["title"] = _meta.Get ("title", _meta.Get ("slug"));
             _meta["url"] = Url;
 
             _meta.Merge (Site.Meta, "site.");
         }
 
-        readonly MetaDict _meta;
+        public override string ToString () => Path;
 
-        readonly Regex _rkeyval = new Regex (@"^\s*([a-zA-Z0-9-_]+)\s*\:\s*(.+)$");
+        readonly MetaDict _meta;
     }
 
     class Site
@@ -139,21 +188,51 @@ namespace Clarin
         public string Url => _meta.Get ("url");
         public MetaDict Meta => _meta;
 
+        List<FileInfo> Files
+        {
+            get
+            {
+                if (_files == null)
+                    _files = EnumerateFiles ().ToList ();
+                return _files;
+            }
+        }
+
         public Site (string localRoot)
         {
             RootPath = localRoot;
 
             _meta = new MetaDict ();
+            _env = new MetaDict (LoadConfigFile (".env"));
 
             ContentPath = Path.Combine (localRoot, "content");
             TemplatesPath = Path.Combine (localRoot, "templates");
             OutputPath = Path.Combine (localRoot, "output");
-
-            _files = EnumerateFiles ().ToList ();
         }
 
-        public bool Parse ()
+        string Env (string key)
         {
+            var result = _env.Get (key);
+            return String.IsNullOrEmpty (result) ? Environment.GetEnvironmentVariable (key) : result;
+        }
+
+        Dictionary<string, object> LoadConfigFile (string filename)
+        {
+            var path = Path.Combine (RootPath, filename);
+            if (!File.Exists (path))
+                return new Dictionary<string, object> ();
+
+            return File.ReadAllLines (path)
+                       .Select (line => MetaDict.TryParseKeyValue (line, out var k, out var v) ? Tuple.Create (k, v) : null)
+                       .Where (t => t != null)
+                       .ToDictionary (t => t.Item1, t => (object)t.Item2);
+        }
+
+        public bool TryParse ()
+        {
+            if (_parsed)
+                return true;
+
             var iniPath = Path.Combine (RootPath, "site.ini");
             if (!File.Exists (iniPath))
             {
@@ -161,19 +240,20 @@ namespace Clarin
                 return false;
             }
 
-            _meta.Merge (new MetaDict (File.ReadAllLines (Path.Combine (RootPath, "site.ini"))
-                                      .Select (line => _rkeyval.Match (line))
-                                      .Where (m => m.Success)
-                                      .ToDictionary (m => m.Groups[1].Value, m => (object)m.Groups[2].Value)));
+            _meta.Merge (new MetaDict (LoadConfigFile ("site.ini")));
 
             if (!_meta.Get ("url").EndsWith ("/"))
                 _meta["url"] = _meta.Get ("url") + "/";
 
+            _parsed = true;
             return true;
         }
 
         public void Emit ()
         {
+            if (!TryParse ())
+                return;
+
             if (!Directory.Exists (ContentPath))
             {
                 Log.Info ("No content directory found. Exiting.");
@@ -183,22 +263,23 @@ namespace Clarin
             if (Directory.Exists (OutputPath))
             {
                 Log.Info ("Deleting previous output directory...");
-                Directory.Delete (OutputPath, true);
+                try { Directory.Delete (OutputPath, true); }
+                catch (IOException ex) { Log.Warn ($"> {ex.Message}"); }
             }
 
-            foreach (var finfo in _files)
+            foreach (var finfo in Files)
                 EmitFile (finfo);
 
-            Log.Info ($"Done. {_files.Count} files processed.");
+            Log.Info ($"Done. {Files.Count} files processed.");
         }
 
-        void EnsurePathExists (string path)
+        public void EnsurePathExists (string path)
         {
             if (!Directory.Exists (path))
                 Directory.CreateDirectory (path);
         }
 
-        internal string MakeRelative (string path, string root)
+        public string MakeRelative (string path, string root)
         {
             var result = path.Substring (root.Length);
             if (result.StartsWith (Path.DirectorySeparatorChar))
@@ -207,40 +288,74 @@ namespace Clarin
             return result;
         }
 
-        string ApplyFilter (string value, string filterName)
+        string LoadTemplate (string name)
         {
-            if (!_filters.TryGetValue (filterName, out var fn))
+            if (string.IsNullOrEmpty (name))
+                return String.Empty;
+
+            var tplPath = Path.Combine (TemplatesPath, name);
+            if (!File.Exists (tplPath))
             {
-                Log.Warn ($"Filter {filterName} not found.");
-                return value;
+                Log.Warn ($"> Template {tplPath} not found.");
+                return string.Empty;
             }
 
-            return fn (value);
+            return File.ReadAllText (tplPath);
         }
 
-        string ExpandMeta (string template, FileInfo finfo) => _rkey.Replace (template, m => {
-            var v = finfo.Meta.Get (m.Groups[1].Value);
-            return (m.Groups[2].Success) ? ApplyFilter (v, m.Groups[2].Value) : v;
-        });
-
-        string GenerateIndex (string category, string pattern)
+        string ApplyFilter (string value, string filter)
         {
-            var files = _files.Where (f => f.IsContent && (bool)f.Meta.Get ("category").Equals (category));
+            if (!_filters.TryGetValue (filter, out var fn))
+                return TryParseDate (value, out var dt) ? dt.ToString (filter) : value;
+            else
+                return fn (this, value);
+        }
+
+        string ExpandMeta (string text, MetaDict meta)
+        {
+            while (_rinc.IsMatch (text))
+            {
+                text = _rinc.Replace (text, m => {
+                    Log.Info ($"> Including '{m.Groups[1].Value}'...");
+                    return LoadTemplate (m.Groups[1].Value);
+                });
+            }
+
+            text = _rindex.Replace (text, m => {
+                Log.Info ($"> Generating index for category '{m.Groups[1].Value}'...");
+                return GenerateIndex (m.Groups[1].Value, m.Groups[2].Value, meta);
+            });
+
+            return _rtag.Replace (text, m => {
+                var v = meta.Get (m.Groups[1].Value);
+                return (m.Groups[2].Success) ? ApplyFilter (v, m.Groups[2].Value) : v;
+            });
+        }
+
+        string GenerateIndex (string category, string pattern, MetaDict meta)
+        {
+            var files = Files.Where (f => f.IsContent && f.Meta.Get ("category").Equals (category))
+                             .OrderBy (f => TryParseDate (f.Meta.Get ("date"), out var dt) ? dt : DateTime.Now);
 
             StringBuilder sb = new StringBuilder ();
             foreach (var finfo in files)
-                sb.Append (ExpandMeta (pattern, finfo));
+            {
+                var fmeta = new MetaDict (finfo.Meta);
+                fmeta.Merge (meta, "page.");
+                sb.Append (ExpandMeta (pattern, fmeta));
+            }
+
             return sb.ToString ();
         }
 
         public void EmitFile (string path)
         {
-            FileInfo finfo = _files.FirstOrDefault (f => f.Path.Equals (path));
+            FileInfo finfo = Files.FirstOrDefault (f => f.Path.Equals (path));
             if (finfo == null)
-                _files.Remove (finfo);
+                Files.Remove (finfo);
 
             finfo = new FileInfo (this, path);
-            _files.Add (finfo);
+            Files.Add (finfo);
 
             EmitFile (finfo);
         }
@@ -250,50 +365,42 @@ namespace Clarin
             Log.Info ($"Emiting file {finfo.Path}...");
             Log.Indent ();
 
-            string output = finfo.OutputPath;
+            var output = finfo.OutputPath;
             EnsurePathExists (Path.GetDirectoryName (output));
 
             if (!finfo.IsContent)
             {
-                Log.Info ($"> Copying contents to {output}...");
+                Log.Info ($"> Copying file to {output}...");
                 File.Copy (finfo.Path, output);
+                return;
             }
-            else
+
+            MetaDict meta = new MetaDict (finfo.Meta);
+
+            Log.Info ($"> Expanding contents...");
+
+            meta["content"] = ExpandMeta (meta.Get ("content"), meta);
+
+            var ext = Path.GetExtension (finfo.Path);
+            if (ext.Equals (".md", StringComparison.InvariantCultureIgnoreCase))
             {
-                Log.Info ($"> Expanding contents...");
-                finfo.Meta["content"] = _rindex.Replace (finfo.Meta.Get ("content"), m => {
-                    Log.Info ($"> Generating index for category '{m.Groups[1].Value}'...");
-                    return GenerateIndex (m.Groups[1].Value, m.Groups[2].Value);
-                });
-
-                var ext = Path.GetExtension (finfo.Path);
-                if (ext.Equals (".md", StringComparison.InvariantCultureIgnoreCase))
-                {
-                    Log.Info ($"> Rendering markdown content...");
-                    finfo.Meta["content"] = RenderMarkdown (finfo.Meta.Get ("content"));
-                    ext = ".html";
-                }
-
-                string content = ExpandMeta (finfo.Meta.Get ("content") , finfo);
-
-                var tpl = finfo.Meta.Get ("template");
-                if (!string.IsNullOrEmpty (tpl))
-                {
-                    Log.Info ($"> Using template '{tpl}'...");
-                    var tplPath = Path.Combine (TemplatesPath, tpl);
-                    if (!File.Exists (tplPath))
-                        Log.Warn ($"Template {tplPath} not found.");
-                    else
-                        content = ExpandMeta (File.ReadAllText (Path.Combine (TemplatesPath, tpl)), finfo);
-                }
-
-                var foutput = Path.Combine (Path.GetDirectoryName (output), finfo.Meta.Get ("slug") + ext);
-                if (File.Exists (foutput))
-                    File.Delete (foutput);
-
-                Log.Info ($"> Writing contents to {foutput}...");
-                File.WriteAllText (foutput, content);
+                Log.Info ($"> Rendering markdown content...");
+                Log.Indent ();
+                meta["content"] = RenderMarkdown (meta.Get ("content"));
+                Log.Unindent ();
+                ext = ".html";
             }
+
+            var template = LoadTemplate (meta.Get ("template"));
+            if (!string.IsNullOrEmpty (template))
+                    meta["content"] = ExpandMeta (template, meta);
+
+            var foutput = Path.Combine (Path.GetDirectoryName (output), meta.Get ("slug") + ext);
+            if (File.Exists (foutput))
+                File.Delete (foutput);
+
+            Log.Info ($"> Writing contents to {foutput}...");
+            File.WriteAllText (foutput, meta.Get ("content"));
 
             Log.Unindent ();
             Log.Info ($"> Done.");
@@ -301,40 +408,94 @@ namespace Clarin
 
         string RenderMarkdown (string text)
         {
-            using (var wc = new System.Net.WebClient ())
+            try
             {
-                wc.Headers.Add (System.Net.HttpRequestHeader.UserAgent, "sitegen (https://github.com/luismedel/sitegen)");
-                wc.Headers.Add (System.Net.HttpRequestHeader.ContentType, "text/plain");
-                wc.Headers.Add (System.Net.HttpRequestHeader.Accept, "application/vnd.github.v3+json");
-                var result = wc.UploadData ("https://api.github.com/markdown/raw", System.Text.Encoding.UTF8.GetBytes (text));
-                return Encoding.UTF8.GetString (result);
+                if (_httpClient == null)
+                {
+                    var ghusername = Env ("CLARIN_GHUSER");
+                    var ghtoken = Env ("CLARIN_GHTOKEN");
+
+                    _httpClient = new HttpClient ();
+                    if (!string.IsNullOrWhiteSpace (ghusername) && !string.IsNullOrWhiteSpace (ghtoken))
+                    {
+                        var auth = Encoding.ASCII.GetBytes ($"{ghusername}:{ghtoken}");
+                        _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue ("Basic", Convert.ToBase64String (auth));
+                        Log.Info ($"> Using autenticated Github requests as {ghusername}.");
+                    }
+                    else
+                        Log.Info ($"> Using unauthenticated Github requests.");
+                }
+
+                using (var req = new HttpRequestMessage (HttpMethod.Post, "https://api.github.com/markdown/raw"))
+                {
+                    req.Headers.Add ("User-Agent", "Clarin (https://github.com/luismedel/clarin)");
+                    req.Headers.Add ("Accept", "application/vnd.github.v3+json");
+                        
+                    req.Content = new StringContent (text, Encoding.UTF8, "text/plain");
+
+                    Log.Info ($"> {req.RequestUri}");
+                    var resp = _httpClient.Send (req);
+                    Log.Info ($"> {(int)resp.StatusCode} ({resp.StatusCode})");
+
+                    string result;
+                    using (StreamReader sr = new StreamReader (resp.Content.ReadAsStream ()))
+                        result = sr.ReadToEnd ();
+
+                    if (resp.IsSuccessStatusCode)
+                    {
+                        if (resp.Headers.TryGetValues ("X-RateLimit-Limit", out var reqLimit)
+                         && resp.Headers.TryGetValues ("X-RateLimit-Remaining", out var reqRemaining)
+                         && resp.Headers.TryGetValues ("X-RateLimit-Reset", out var reqReset))
+                            Log.Info ($"> Remaining requests {reqRemaining.First ()}/{reqLimit.First ()} (reset on {new DateTime (1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds (double.Parse (reqReset.First ())).ToLocalTime ()})");
+
+                        return result;
+                    }
+                    else
+                    {
+                        Log.Warn ($"> {result}");
+                        return text;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error ($" > {ex.Message}");
+                return text;
             }
         }
 
         IEnumerable<FileInfo> EnumerateFiles ()
         {
-            return Directory.EnumerateFiles (ContentPath, "*", System.IO.SearchOption.AllDirectories)
+            return Directory.EnumerateFiles (ContentPath, "*", SearchOption.AllDirectories)
                             .Where (s => !s.StartsWith ("_"))
                             .Select (path => new FileInfo (this, path))
-                            .Where (f => !f.IsContent || (f.IsContent && f.Meta.Get ("status") != "draft"));
+                            .Where (f => !f.IsContent || (f.IsContent && !f.Meta.Get ("draft").Equals ("true", StringComparison.InvariantCultureIgnoreCase)));
         }
 
-        static bool TryParseDate (string date, out DateTime result) => DateTime.TryParseExact (date, new string[] { "yyyyMMdd", "yyyyMMddhhmm", "yyyyMMddhhmmss" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out result);
+        static bool TryParseDate (string date, out DateTime result)
+        {
+            var formats = new string[] { "yyyyMMdd","yyyy-MM-dd", "yyyy.MM.dd", "yyyy/MM/dd" };
+            return DateTime.TryParseExact (date, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out result);
+        }
 
-        readonly Dictionary<string, Func<string, string>> _filters = new Dictionary<string, Func<string, string>> (StringComparer.InvariantCultureIgnoreCase) {
-            { "upper",    s => s.ToUpper () },
-            { "lower",    s => s.ToLower () },
-            { "rfc822",   s => TryParseDate (s, out var dt) ? dt.ToString ("r") : s },
-            { "yyyymmdd", s => TryParseDate (s, out var dt) ? dt.ToString ("yyyyMMdd") : s },
+        readonly Dictionary<string, Func<Site, string, string>> _filters = new Dictionary<string, Func<Site, string, string>> (StringComparer.InvariantCultureIgnoreCase) {
+            { "upper",    (site,s) => s.ToUpper () },
+            { "lower",    (site,s) => s.ToLower () },
+            { "date",     (site,s) => TryParseDate (s, out var dt) ? dt.ToString (site.Meta.Get ("dateFormat", "yyyyMMdd")) : s },
+            { "rfc822",   (site,s) => TryParseDate (s, out var dt) ? dt.ToString ("r") : s },
         };
 
-        readonly List<FileInfo> _files;
+        List<FileInfo> _files;
 
+        bool _parsed;
         readonly MetaDict _meta;
+        readonly MetaDict _env;
 
-        readonly Regex _rindex = new Regex (@"\{\%index\|([a-zA-Z0-9-_]+)\|([^&]+)\%\}"); // {%index|category|pattern%}
-        readonly Regex _rkey = new Regex (@"\{([a-zA-Z0-9-_.]+)(?:\|([a-zA-Z0-9-_]+))?\}"); // {key}
-        readonly Regex _rkeyval = new Regex (@"^\s*([a-zA-Z0-9-_]+)\s*\=\s*(.+)$");
+        HttpClient _httpClient = null;
+
+        static readonly Regex _rindex = new Regex (@"\{\%index\|([a-zA-Z0-9-_]+)\|([^&]+)\%\}", RegexOptions.Compiled); // {%index|category|pattern%}
+        static readonly Regex _rinc = new Regex (@"\{\%inc\|([^%]+)\%\}", RegexOptions.Compiled); // {%inc|template%}
+        static readonly Regex _rtag = new Regex (@"\{([a-zA-Z0-9-_.]+)(?:\|([^}]+))?\}", RegexOptions.Compiled); // {key}
     }
 
     class Program
@@ -343,14 +504,15 @@ namespace Clarin
         {
             Console.WriteLine (@"
 Usage:
-
-    clarin <command> [<path>]
+  clarin <command> [<path>]
 
 Commands:
+  build       generates the site in <path>/output
+  init        inits a new site
+  add         adds a new empty entry in <path>/content
+  version     prints the version number of Clarin
 
-    build       generates the site in <path>/output
-    watch       watches for changes and generates the site continuously
-    init        inits a new site
+<path> defaults to current directory if not specified.
 ");
         }
 
@@ -367,7 +529,7 @@ Commands:
             var command = args[0];
             if (!_commands.TryGetValue (command, out var cmd))
             {
-                Log.Error ($"Unrecognized command '{command}'.");
+                Log.Error ($"Unknown command '{command}'.");
                 return;
             }
 
@@ -377,55 +539,67 @@ Commands:
 
         static void CmdEmit (Site site)
         {
-            if (!site.Parse ())
+            if (!site.TryParse ())
                 return;
 
             site.Emit ();
-        }
-
-        static void CmdObserve (Site site)
-        {
-            if (!site.Parse ())
-                return;
-
-            site.Emit ();
-
-            using (FileSystemWatcher fsw = new FileSystemWatcher (site.ContentPath))
-            {
-                fsw.Changed += (object sender, FileSystemEventArgs e) => site.EmitFile (e.FullPath);
-                fsw.Created += (object sender, FileSystemEventArgs e) => site.EmitFile (e.FullPath);
-                fsw.Renamed += (object sender, RenamedEventArgs e) => site.EmitFile (e.FullPath);
-                fsw.EnableRaisingEvents = true;
-
-                Console.WriteLine ("Press any key to stop...");
-                Console.ReadKey ();
-
-                fsw.EnableRaisingEvents = false;
-            }
         }
 
         static void CmdInit (Site site)
         {
-            if (site.Parse ())
+            if (site.TryParse ())
             {
                 Log.Error ($"{site.RootPath} already contains a site.");
                 return;
             }
 
-            Directory.CreateDirectory (site.ContentPath);
-            Directory.CreateDirectory (site.TemplatesPath);
+            site.EnsurePathExists (site.RootPath);
+            site.EnsurePathExists (site.ContentPath);
+            site.EnsurePathExists (site.TemplatesPath);
 
             File.WriteAllText (Path.Combine (site.RootPath, "site.ini"), @"
-title = my new site
-description = my new site description
-url = http://127.0.0.1/
+title = ""my new site""
+description = ""my new site description""
+; Root url for your site
+url = ""http://127.0.0.1/""
+; Defines how Clarin prints the dates when using the '|date' filter
+dateFormat  = ""yyyy-MM-dd""
 ");
+        }
+
+        static void CmdAdd (Site site)
+        {
+            if (!site.TryParse ())
+                return;
+
+            var filename = DateTime.Now.ToString ("yyyyMMdd") + "-new-entry";
+            var path = Path.Combine (site.ContentPath, $"{filename}.md");
+
+            File.WriteAllText (path, $@"
+---
+title: ""New entry""
+slug: ""new-entry""
+date: ""{DateTime.Now:yyyyMMdd}""
+category: ""blog""
+draft: ""true""
+---
+
+Your content here.
+");
+            Console.WriteLine ($"Added {path}.");
+        }
+
+        static void CmdVersion (Site site)
+        {
+            var version = typeof (Program).Assembly.GetName ().Version;
+            Console.WriteLine ($"Clarin v{version}");
         }
 
         static readonly Dictionary<string, Action<Site>> _commands = new Dictionary<string, Action<Site>> {
             { "build", new Action<Site> (CmdEmit) },
-            { "observe", new Action<Site> (CmdObserve) },
             { "init", new Action<Site> (CmdInit) },
+            { "add", new Action<Site> (CmdAdd) },
+            { "version", new Action<Site> (CmdVersion) },
         };
     }
 }

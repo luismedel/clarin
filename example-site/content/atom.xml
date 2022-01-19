@@ -1,0 +1,17 @@
+<feed xmlns="http://www.w3.org/2005/Atom">
+	<title>{site.url} feed</title>
+	<link href="{url}" rel="self"/>
+	<link href="{site.url}" rel="alternate"/>
+	<id>{site.url}</id>
+	<updated>{sys.date|RFC822}</updated>
+	{%index|blog|
+	<entry>
+		<id>{url}</id>
+		<link href="{url}"/>
+		<title>{title}</title>
+		<author><name>{site.author}</name></author>
+		<published>{date|RFC822}</published>
+		<summary>{excerpt}</summary>
+	</entry>
+	%}
+</feed>
