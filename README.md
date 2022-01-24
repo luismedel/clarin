@@ -313,8 +313,19 @@ Use the ```build``` command.
 # clarin build
 ```
 
-You can use the ```watch``` command to monitor for changes and rebuild modified files continuously.
-
 ### Example site
 
 See the example site included.
+
+### Docker image
+
+There's a [Docker image](https://hub.docker.com/repository/docker/luismedel/clarin/) you can run to use Clarin without headaches.
+
+Suppose you have your site in ```./site```. Simply run:
+
+```sh
+# docker run -v $(pwd)/site:/site luismedel/clarin <command>
+```
+
+...where ```<command>``` is any clarin command (like ```build```, for example)
+
