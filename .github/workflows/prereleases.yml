@@ -34,6 +34,7 @@ jobs:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         automatic_release_tag: "${{ matrix.platform }}-latest"
         prerelease: true
-        title: "Development Build"
+        title: "${{ matrix.platform }} development build"
         files: |
           ./${{ matrix.platform }}-x64/Clarin*
+
