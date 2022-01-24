@@ -14,6 +14,10 @@ jobs:
       matrix:
         net-version: [6.0.x]
         platform: [win, linux, osx]
+        arch: [x86, arm, arm64]
+        exclude:
+          - platform: osx
+            arch: arm
 
     steps:
     - uses: actions/checkout@v2
@@ -28,13 +32,12 @@ jobs:
     - name: Test
       run: dotnet test --no-build --verbosity normal
     - name: Publish
-      run: dotnet publish -c Release -r ${{ matrix.platform }}-x64 -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./${{ matrix.platform }}-x64
+      run: dotnet publish -c Release -r ${{ matrix.platform }}-${{ matrix.arch }} -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./${{ matrix.platform }}-${{ matrix.arch }}
     - uses: "marvinpinto/action-automatic-releases@4edd7a5aabb1bc62e6dc99b3302d587bf3134e20"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "${{ matrix.platform }}-latest"
+        automatic_release_tag: "${{ matrix.platform }}-${{ matrix.arch }}-latest"
         prerelease: true
-        title: "${{ matrix.platform }} development build"
+        title: "${{ matrix.platform }}-${{ matrix.arch }} development build"
         files: |
-          ./${{ matrix.platform }}-x64/Clarin*
-
+          ./${{ matrix.platform }}-${{ matrix.arch }}/Clarin*
