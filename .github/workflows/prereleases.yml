@@ -1,4 +1,4 @@
-name: "Pre-releases"
+name: Pre-releases
 
 on:
   push:
@@ -9,46 +9,31 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        net-version: [6.0.x]
+        platform: [windows, linux, osx]
 
     steps:
     - uses: actions/checkout@v2
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 6.0.x
+        dotnet-version: ${{ matrix.net-version }}
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
       run: dotnet build --no-restore 
     - name: Test
       run: dotnet test --no-build --verbosity normal
-    - name: Publish-Windows
-      run: dotnet publish -c Release -r win-x64 -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./win-x64
+    - name: Publish
+      run: dotnet publish -c Release -r ${{ matrix.platform }}-x64 -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./${{ matrix.platform }}-x64
     - uses: "marvinpinto/action-automatic-releases@4edd7a5aabb1bc62e6dc99b3302d587bf3134e20"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "windows-latest"
+        automatic_release_tag: "${{ matrix.platform }}-latest"
         prerelease: true
         title: "Development Build"
         files: |
-          ./win-x64/Clarin.exe
-    - name: Publish-Linux
-      run: dotnet publish -c Release -r linux-x64 -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./linux-x64
-    - uses: "marvinpinto/action-automatic-releases@4edd7a5aabb1bc62e6dc99b3302d587bf3134e20"
-      with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "linux-latest"
-        prerelease: true
-        title: "Development Build"
-        files: |
-          ./linux-x64/Clarin
-    - name: Publish-macOS
-      run: dotnet publish -c Release -r osx-x64 -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./osx-x64
-    - uses: "marvinpinto/action-automatic-releases@4edd7a5aabb1bc62e6dc99b3302d587bf3134e20"
-      with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "macos-latest"
-        prerelease: true
-        title: "Development Build"
-        files: |
-          ./osx-x64/Clarin
+          ./${{ matrix.platform }}-x64/Clarin*
