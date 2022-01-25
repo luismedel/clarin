@@ -4,7 +4,7 @@ ADD "https://github.com/luismedel/clarin/releases/download/linux-x64-latest/Clar
 
 RUN chmod +x /Clarin \
 	&& apt-get update \
-	&& apt-get install -y libicu-dev
+	&& apt-get install -y ca-certificates libicu-dev
 
 WORKDIR /site
 VOLUME  /site
