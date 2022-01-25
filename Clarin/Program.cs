@@ -372,6 +372,7 @@ namespace Clarin
             {
                 Log.Info ($"> Copying file to {output}...");
                 File.Copy (finfo.Path, output);
+                Log.Unindent ();
                 return;
             }
 
