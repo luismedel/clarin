@@ -20,7 +20,9 @@ jobs:
         arch: [x64, arm, arm64]
         exclude:
           - platform: osx
-            arch: arm
+            arch: [arm, musl]
+          - platform: win
+            arch: [musl]
 
     steps:
     - uses: actions/checkout@v2
@@ -43,4 +45,4 @@ jobs:
         prerelease: true
         title: "${{ matrix.platform }}-${{ matrix.arch }} development build"
         files: |
-          ./${{ matrix.platform }}-${{ matrix.arch }}/Clarin*
+          ./${{ matrix.platform }}-${{ matrix.arch }}/clarin*
