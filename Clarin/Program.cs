@@ -228,7 +228,7 @@ namespace Clarin
                        .ToDictionary (t => t.Item1, t => (object)t.Item2);
         }
 
-        public bool TryParse ()
+        public bool TryParse (bool logError = true)
         {
             if (_parsed)
                 return true;
@@ -236,7 +236,9 @@ namespace Clarin
             var iniPath = Path.Combine (RootPath, "site.ini");
             if (!File.Exists (iniPath))
             {
-                Log.Error ($"{iniPath} not found.");
+                if (logError)
+                    Log.Error ($"{iniPath} not found.");
+
                 return false;
             }
 
@@ -548,7 +550,7 @@ Commands:
 
         static void CmdInit (Site site)
         {
-            if (site.TryParse ())
+            if (site.TryParse (logError:false))
             {
                 Log.Error ($"{site.RootPath} already contains a site.");
                 return;
