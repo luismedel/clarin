@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Globalization;
 using System.Net.Http;
+using System.Net.Http.Headers;
 
 namespace Clarin
 {
@@ -133,17 +134,20 @@ namespace Clarin
 
         void Parse ()
         {
-            Log.Info ($"Parsing file {this.Path}...");
-
             using (StreamReader sr = new StreamReader (File.OpenRead (this.Path)))
             {
-                if (sr.ReadLine ().Trim () != "---")
+                if (sr.ReadLine ()?.Trim () != "---")
                     _meta["content"] = File.ReadAllText (this.Path);
                 else
                 {
+                    Log.Info ($"Parsing file {this.Path}...");
+
                     while (true)
                     {
-                        var line = sr.ReadLine ().Trim ();
+                        var line = sr.ReadLine ()?.Trim ();
+                        if (line == null)
+                            break;
+
                         if (line == "---")
                             break;
 
@@ -353,7 +357,7 @@ namespace Clarin
         public void EmitFile (string path)
         {
             FileInfo finfo = Files.FirstOrDefault (f => f.Path.Equals (path));
-            if (finfo == null)
+            if (finfo != null)
                 Files.Remove (finfo);
 
             finfo = new FileInfo (this, path);
@@ -373,7 +377,13 @@ namespace Clarin
             if (!finfo.IsContent)
             {
                 Log.Info ($"> Copying file to {output}...");
-                File.Copy (finfo.Path, output);
+
+                try { if (File.Exists (output)) File.Delete (output); }
+                catch (IOException ex) { Log.Error (ex.Message);}
+
+                try { File.Copy (finfo.Path, output); }
+                catch (IOException ex) { Log.Error (ex.Message); }
+
                 Log.Unindent ();
                 return;
             }
@@ -470,8 +480,8 @@ namespace Clarin
         IEnumerable<FileInfo> EnumerateFiles ()
         {
             return Directory.EnumerateFiles (ContentPath, "*", SearchOption.AllDirectories)
-                            .Where (s => !s.StartsWith ("_"))
-                            .Select (path => new FileInfo (this, path))
+                            .Where (s => !Path.GetFileNameWithoutExtension (s).StartsWith ("_"))
+                            .Select (path => new FileInfo (this, Path.GetFullPath (path)))
                             .Where (f => !f.IsContent || (f.IsContent && !f.Meta.Get ("draft").Equals ("true", StringComparison.InvariantCultureIgnoreCase)));
         }
 
@@ -511,6 +521,7 @@ Usage:
 
 Commands:
   build       generates the site in <path>/output
+  watch       watches for changes and builds the site continuously
   init        inits a new site
   add         adds a new empty entry in <path>/content
   version     prints the version number of Clarin
@@ -518,7 +529,9 @@ Commands:
 <path> defaults to current directory if not specified.
 ");
         }
-
+        
+        static string NextOpt (string[] args, ref int index) => args.Length <= index ? null : args[index++];
+        
         static void Main (string[] args)
         {
             System.Diagnostics.Trace.Listeners.Add (new System.Diagnostics.ConsoleTraceListener ());
@@ -529,16 +542,21 @@ Commands:
                 return;
             }
 
-            var command = args[0];
+            var optidx = 0;
+            var command = NextOpt (args, ref optidx);
+            var path = NextOpt (args, ref optidx) ?? ".";
+
             if (!_commands.TryGetValue (command, out var cmd))
             {
                 Log.Error ($"Unknown command '{command}'.");
                 return;
             }
 
-            var path = args.Length == 1 ? "." : args[1];
-            cmd (new Site (path));
+            var site = new Site (Path.GetFullPath (path));
+            cmd (site);
         }
+
+        static void SetLocal (Site site) => site.Meta["url"] = Path.GetFullPath (site.OutputPath);
 
         static void CmdEmit (Site site)
         {
@@ -568,6 +586,37 @@ url = ""http://127.0.0.1/""
 ; Defines how Clarin prints the dates when using the '|date' filter
 dateFormat  = ""yyyy-MM-dd""
 ");
+        }
+
+        static void CmdWatch (Site site)
+        {
+            if (!site.TryParse ())
+                return;
+
+            site.Meta["url"] = Path.GetFullPath (site.OutputPath);
+            site.Emit ();
+            
+            Log.Info ($"Waiting for changes in {Path.GetFullPath(site.ContentPath)}. Press any key to stop.");
+
+            using (var fsw = new FileSystemWatcher ())
+            {
+                fsw.Path = Path.GetFullPath (site.ContentPath);
+                fsw.Filter = "*.*";
+                fsw.NotifyFilter = NotifyFilters.Size
+                                 | NotifyFilters.CreationTime
+                                 | NotifyFilters.LastWrite
+                                 | NotifyFilters.FileName;
+
+                fsw.Renamed += (sender,  args) => site.EmitFile (args.FullPath);
+                fsw.Changed += (sender,  args) => site.EmitFile (args.FullPath);
+                fsw.Created += (sender,  args) => site.EmitFile (args.FullPath);
+
+                fsw.EnableRaisingEvents = true;
+
+                Console.ReadKey ();
+
+                fsw.EnableRaisingEvents = false;
+            } 
         }
 
         static void CmdAdd (Site site)
@@ -600,6 +649,7 @@ Your content here.
 
         static readonly Dictionary<string, Action<Site>> _commands = new Dictionary<string, Action<Site>> {
             { "build", new Action<Site> (CmdEmit) },
+            { "watch", new Action<Site> (CmdWatch) },
             { "init", new Action<Site> (CmdInit) },
             { "add", new Action<Site> (CmdAdd) },
             { "version", new Action<Site> (CmdVersion) },
