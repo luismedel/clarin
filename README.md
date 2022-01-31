@@ -1,6 +1,6 @@
 ![Image](./logo-w480.png)
 
-Clarin is a simple, zero-dependency, dogmatic static website generator written as a single C# source file.
+Clarin is a simple, zero-dependency, dogmatic static website generator written in C#.
 
 Clarin takes a directory with content files and templates and renders them into a static HTML website. No more. No less.
 
@@ -16,34 +16,42 @@ Clarin isn’t flexible, nor optimized for speed, ease of use or configurability
 
 ```sh
 Usage:
-  clarin <command> [<path>]
+clarin <command> [--local] [<path>]
 
 Commands:
-  build       generates the site in <path>/output
-  init        inits a new site
-  add         adds a new empty entry in <path>/content
-  version     prints the version number of Clarin
+build       generates the site in <path>/output
+watch       watches for changes and builds the site continuously
+init        inits a new site
+add         adds a new empty entry in <path>/content
+version     prints the version number of Clarin
+
+--local     overrides the value in site.ini and sets the site url
+            to the current site local path
+
+<path> defaults to current directory if not specified.
 ```
 
 ### Create a new site
 
 ```sh
-# cd /home/luis/
+# cd /home/johndoe/
 
 # clarin init my-site
 
-# cd /home/luis/my-site
+# cd /home/johndoe/my-site
 ```
 
 ### Edit the site config
 
 ```sh
-# cat /home/luis/my-site/site.ini
+# cat /home/johndoe/my-site/site.ini
 title       = my new site
 description = my new site description
 author      = author name
-; Root url for your site
+
+; Root url for your site. Can be a local path too
 url         = http://127.0.0.1/
+
 ; Defines how Clarin prints the dates when using the 'date' filter
 dateFormat  = yyyy-MM-dd
 ```
@@ -70,12 +78,14 @@ You can add as many metadata fields as you want. Just remember that:
 * Clarin won't render content with ```draft:true```.
 * The field ```category``` is needed for index tags to work (explained later).
 
+Also, Clarin ignores any file starting with an underscore, like ```_20220131-draft.md```.
+
 ### Add new content
 
 ```sh
-# cd /home/luis/my-site
+# cd /home/johndoe/my-site
 # clarin add
-Added /home/luis/my-site/content/20220114-newentry.md
+Added /home/johndoe/my-site/content/20220114-newentry.md
 
 # cat content/20220114-newentry.md
 ---
@@ -93,7 +103,7 @@ Your content here.
 Clarin uses a very simple and familiar syntax for your content tags:
 
 ```sh
-# cat /home/luis/my-site/content/20220114-newentry.md
+# cat /home/johndoe/my-site/content/20220114-newentry.md
 ---
 title: new entry
 date: 20220114
@@ -309,7 +319,7 @@ Remind to add that file to your .gitignore! 😀
 Use the ```build``` command.
 
 ```sh
-# cd /home/luis/my-site
+# cd /home/johndoe/my-site
 # clarin build
 ```
 
@@ -321,10 +331,10 @@ See the example site included.
 
 There's a [Docker image](https://hub.docker.com/repository/docker/luismedel/clarin/) you can run to use Clarin without headaches.
 
-Suppose you have your site in ```./site```. Simply run:
+Suppose you have your site in ```/home/johndoe/site```. Simply run:
 
 ```sh
-# docker run -v $(pwd)/site:/site luismedel/clarin <command>
+# docker run -v /home/johndoe/site:/site luismedel/clarin <command>
 ```
 
 ...where ```<command>``` is any clarin command (like ```build```, for example)
