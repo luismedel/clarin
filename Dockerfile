@@ -1,6 +1,6 @@
 FROM debian:stable-slim
 
-ADD "https://github.com/luismedel/clarin/releases/download/linux-x64-latest/Clarin" "/Clarin"
+ADD "https://github.com/luismedel/clarin/releases/download/linux-x64-latest/clarin" "/clarin"
 
 RUN chmod +x /Clarin \
 	&& apt-get update \
@@ -9,4 +9,4 @@ RUN chmod +x /Clarin \
 WORKDIR /site
 VOLUME  /site
 
-ENTRYPOINT ["/Clarin"]
+ENTRYPOINT ["/clarin"]
