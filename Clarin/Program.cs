@@ -49,7 +49,7 @@ version     prints the version number of Clarin
                 cfg.Path = NextOpt (args, ref optidx) ?? ".";
             }
             else
-                cfg.Path = opt;
+                cfg.Path = opt ?? ".";
 
             if (!_commands.TryGetValue (cfg.Command, out var cmd))
             {
