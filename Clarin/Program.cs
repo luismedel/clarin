@@ -43,13 +43,24 @@ version     prints the version number of Clarin
             var optidx = 0;
             cfg.Command = NextOpt (args, ref optidx);
             var opt = NextOpt (args, ref optidx);
+            var isLocal = false;
             if (opt == "--local")
             {
-                cfg.IsLocal = true;
                 cfg.Path = NextOpt (args, ref optidx) ?? ".";
+                isLocal = true;
             }
             else
                 cfg.Path = opt ?? ".";
+
+            cfg.Site = new Site (Path.GetFullPath (cfg.Path));
+
+            if (isLocal)
+            {
+                var url = Path.GetFullPath (cfg.Site.OutputPath);
+                if (!url.EndsWith ("/"))
+                    url += "/";
+                cfg.SiteOverrides["url"] = url;
+            }
 
             if (!_commands.TryGetValue (cfg.Command, out var cmd))
             {
@@ -57,20 +68,14 @@ version     prints the version number of Clarin
                 return;
             }
 
-            cfg.Site = new Site (Path.GetFullPath (cfg.Path));
             cmd (cfg);
         }
-
-        static void SetLocal (Site site) => site.Meta["url"] = Path.GetFullPath (site.OutputPath);
 
         static void CmdEmit (RunConfig cfg)
         {
             Site site = cfg.Site;
-            if (!site.TryParse ())
+            if (!site.TryParse (overrides:cfg.SiteOverrides))
                 return;
-
-            if (cfg.IsLocal)
-                SetLocal (site);
 
             site.Emit ();
         }
@@ -78,13 +83,11 @@ version     prints the version number of Clarin
         static void CmdInit (RunConfig cfg)
         {
             Site site = cfg.Site;
-            if (site.TryParse (logError: false))
+            if (site.TryParse (logError: false, overrides:cfg.SiteOverrides))
             {
                 Log.Error ($"{site.RootPath} already contains a site.");
                 return;
             }
-
-            SetLocal (site);
 
             site.EnsurePathExists (site.RootPath);
             site.EnsurePathExists (site.ContentPath);
@@ -96,7 +99,7 @@ description = ""my new site description""
 
 ; Root url for your site. Can be a local path too
 url = ""http://127.0.0.1/""
-;url = ""{site.Url}""
+;url = ""{site.OutputPath}""
 
 ; Defines how Clarin prints the dates when using the '|date' filter
 dateFormat  = ""yyyy-MM-dd""
@@ -106,11 +109,8 @@ dateFormat  = ""yyyy-MM-dd""
         static void CmdWatch (RunConfig cfg)
         {
             Site site = cfg.Site;
-            if (!site.TryParse ())
+            if (!site.TryParse (overrides:cfg.SiteOverrides))
                 return;
-
-            if (cfg.IsLocal)
-                SetLocal (site);
 
             site.Emit ();
 
@@ -140,11 +140,8 @@ dateFormat  = ""yyyy-MM-dd""
         static void CmdAdd (RunConfig cfg)
         {
             Site site = cfg.Site;
-            if (!site.TryParse ())
+            if (!site.TryParse (overrides:cfg.SiteOverrides))
                 return;
-
-            if (cfg.IsLocal)
-                SetLocal (site);
 
             var filename = DateTime.Now.ToString ("yyyyMMdd") + "-new-entry";
             var path = Path.Combine (site.ContentPath, $"{filename}.md");

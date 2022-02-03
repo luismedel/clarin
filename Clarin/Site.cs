@@ -60,7 +60,7 @@ namespace Clarin
                        .ToDictionary (t => t.Item1, t => (object) t.Item2);
         }
 
-        public bool TryParse (bool logError = true)
+        public bool TryParse (bool logError = true, MetaDict overrides = null)
         {
             if (_parsed)
                 return true;
@@ -75,6 +75,9 @@ namespace Clarin
             }
 
             _meta.Merge (new MetaDict (LoadConfigFile ("site.ini")));
+
+            if (overrides != null)
+                _meta.Merge (overrides);
 
             if (!_meta.Get ("url").EndsWith ("/"))
                 _meta["url"] = _meta.Get ("url") + "/";
@@ -284,7 +287,7 @@ namespace Clarin
                         _httpClient.DefaultRequestHeaders.Authorization =
                             new System.Net.Http.Headers.AuthenticationHeaderValue (
                                 "Basic", Convert.ToBase64String (auth));
-                        Log.Info ($"> Using autenticated Github requests as {ghusername}.");
+                        Log.Info ($"> Using authenticated Github requests as {ghusername}.");
                     }
                     else
                         Log.Info ($"> Using unauthenticated Github requests.");
