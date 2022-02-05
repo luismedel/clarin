@@ -104,6 +104,11 @@ Clarin uses a very simple and familiar syntax for your content tags:
 
 ```sh
 # cat /home/johndoe/my-site/content/20220114-newentry.md
+```
+
+
+
+```markdown
 ---
 title: new entry
 date: 20220114
@@ -157,8 +162,14 @@ When using any of the date filters (```date```, ```rfc822``` and ```yyyyMMdd```)
 
 You can insert an index for your content using the following syntax in any content page:
 
-```
+```html
 {%index|<category>|<pattern>%}
+```
+
+or
+
+```html
+{%index|<category>(<count>)|<pattern>%}
 ```
 
 For example, to generate an index for all your entries with category 'blog' in your index.html file:
@@ -182,7 +193,7 @@ Welcome to my blog!
 	- [{title}]({url}) %}
 ```
 
-Another example of how you can generate an atom.xml file:
+Another example of how you can generate an atom.xml file for the last 10 blog entries:
 
 ```xml
 <feed xmlns="http://www.w3.org/2005/Atom">
@@ -191,7 +202,7 @@ Another example of how you can generate an atom.xml file:
 	<link href="{site.url}" rel="alternate"/>
 	<id>{site.url}</id>
 	<updated>{sys.date|RFC822}</updated>
-	{%index|blog|
+	{%index|blog(10)|
 	<entry>
 		<id>{url}</id>
 		<link href="{url}"/>
@@ -243,7 +254,7 @@ So, having this template in ```<site>/templates/page.html```...
 
 ...and this content in ```<site>/content/20220114-hello.html```...
 
-```html
+```markdown
 ---
 title: Hello!
 date: 20220114
@@ -305,7 +316,7 @@ You can use a [personal access token (PAT)](https://docs.github.com/es/authentic
 
 To do so, put your Github username and your PAT in the following environment variables.
 
-```
+```sh
 CLARIN_GHUSER = "<your GH user>"
 CLARIN_GHTOKEN = "<your PAT>"
 ```

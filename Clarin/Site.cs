@@ -165,23 +165,25 @@ namespace Clarin
                 });
             }
 
-            text = _rindex.Replace (text, m =>
-            {
+            text = _rindex.Replace (text, m => {
                 Log.Info ($"> Generating index for category '{m.Groups[1].Value}'...");
-                return GenerateIndex (m.Groups[1].Value, m.Groups[2].Value, meta);
+                var count = m.Groups[2].Success ? int.Parse (m.Groups[2].Value) : -1;
+                return GenerateIndex (m.Groups[1].Value, count, m.Groups[3].Value, meta);
             });
 
-            return _rtag.Replace (text, m =>
-            {
+            return _rtag.Replace (text, m => {
                 var v = meta.Get (m.Groups[1].Value);
                 return (m.Groups[2].Success) ? ApplyFilter (v, m.Groups[2].Value) : v;
             });
         }
 
-        string GenerateIndex (string category, string pattern, MetaDict meta)
+        string GenerateIndex (string category, int limit, string pattern, MetaDict meta)
         {
             var files = Files.Where (f => f.IsContent && f.Meta.Get ("category").Equals (category))
-                             .OrderBy (f => TryParseDate (f.Meta.Get ("date"), out var dt) ? dt : DateTime.Now);
+                             .OrderBy (f => TryParseDate (f.Meta.Get ("date"), out var dt) ? dt : DateTime.Now)
+                             .ToList ();
+            if (limit > 0)
+                files = files.Take (limit).ToList ();
 
             StringBuilder sb = new StringBuilder ();
             foreach (var finfo in files)
@@ -372,8 +374,8 @@ namespace Clarin
         HttpClient _httpClient = null;
 
         static readonly Regex
-            _rindex = new Regex (@"\{\%index\|([a-zA-Z0-9-_]+)\|([^&]+)\%\}",
-                                 RegexOptions.Compiled); // {%index|category|pattern%}
+            _rindex = new Regex (@"\{\%index\|([a-zA-Z0-9-_]+)(?:\((\d+)\))?\|([^%]+)\%\}",
+                                 RegexOptions.Compiled); // {%index|category(limit)|pattern%}
 
         static readonly Regex _rinc = new Regex (@"\{\%inc\|([^%]+)\%\}", RegexOptions.Compiled); // {%inc|template%}
 
