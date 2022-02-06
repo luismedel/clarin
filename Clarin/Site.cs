@@ -180,7 +180,7 @@ namespace Clarin
         string GenerateIndex (string category, int limit, string pattern, MetaDict meta)
         {
             var files = Files.Where (f => f.IsContent && f.Meta.Get ("category").Equals (category))
-                             .OrderBy (f => TryParseDate (f.Meta.Get ("date"), out var dt) ? dt : DateTime.Now)
+                             .OrderByDescending (f => TryParseDate (f.Meta.Get ("date"), out var dt) ? dt : DateTime.Now)
                              .ToList ();
             if (limit > 0)
                 files = files.Take (limit).ToList ();
