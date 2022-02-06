@@ -348,8 +348,8 @@ namespace Clarin
 
         static bool TryParseDate (string date, out DateTime result)
         {
-            var formats = new string[] {"yyyyMMdd", "yyyy-MM-dd", "yyyy.MM.dd", "yyyy/MM/dd"};
-            return DateTime.TryParseExact (date, formats, CultureInfo.InvariantCulture, DateTimeStyles.None,
+            var formats = new string[] { "yyyyMMdd", "yyyy-MM-dd", "yyyy.MM.dd", "yyyy/MM/dd", "yyyyMMddhhmmss" };
+            return DateTime.TryParseExact (date, formats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal,
                                            out result);
         }
 
