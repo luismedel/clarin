@@ -59,8 +59,8 @@ namespace Clarin
 
             key = m.Groups[1].Value;
             value = m.Groups[2].Value;
-            if ((value.EndsWith ('"') && value.EndsWith ('"'))
-                || (value.EndsWith ('\'') && value.EndsWith ('\'')))
+            if ((value.StartsWith ('"') && value.EndsWith ('"'))
+                || (value.StartsWith ('\'') && value.EndsWith ('\'')))
                 value = value.Substring (1, value.Length - 2);
 
             return true;
