@@ -158,8 +158,7 @@ namespace Clarin
         {
             while (_rinc.IsMatch (text))
             {
-                text = _rinc.Replace (text, m =>
-                {
+                text = _rinc.Replace (text, m => {
                     Log.Info ($"> Including '{m.Groups[1].Value}'...");
                     return LoadTemplate (m.Groups[1].Value);
                 });
@@ -169,6 +168,11 @@ namespace Clarin
                 Log.Info ($"> Generating index for category '{m.Groups[1].Value}'...");
                 var count = m.Groups[2].Success ? int.Parse (m.Groups[2].Value) : -1;
                 return GenerateIndex (m.Groups[1].Value, count, m.Groups[3].Value, meta);
+            });
+
+            text = _rref.Replace (text, m => {
+                var f = _files.FirstOrDefault (f => f.Meta.Get ("slug").Equals (m.Groups[1].Value));
+                return f?.Url ?? string.Empty;
             });
 
             return _rtag.Replace (text, m => {
@@ -378,8 +382,7 @@ namespace Clarin
                                  RegexOptions.Compiled); // {%index|category(limit)|pattern%}
 
         static readonly Regex _rinc = new Regex (@"\{\%inc\|([^%]+)\%\}", RegexOptions.Compiled); // {%inc|template%}
-
-        static readonly Regex
-            _rtag = new Regex (@"\{([a-zA-Z0-9-_.]+)(?:\|([^}]+))?\}", RegexOptions.Compiled); // {key}
+        static readonly Regex _rtag = new Regex (@"\{([a-zA-Z0-9-_.]+)(?:\|([^}]+))?\}", RegexOptions.Compiled); // {key}
+        static readonly Regex _rref = new Regex (@"\{\#([^}]+)\}", RegexOptions.Compiled); // {#slug}
     }
 }

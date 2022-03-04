@@ -158,6 +158,13 @@ When using any of the date filters (```date```, ```rfc822``` and ```yyyyMMdd```)
 * yyyy.MM.dd
 * yyyy/MM/dd
 
+### Content urls
+
+You can insert the url of a content in two ways:
+
+* Using the form ```{site.url}filename.html```
+* Using the sorthand ```{#<slug>}``` where ```<slug>``` is the slug of the content you want to get the url of.
+
 ### Create an index (aka 'index tags')
 
 You can insert an index for your content using the following syntax in any content page:
