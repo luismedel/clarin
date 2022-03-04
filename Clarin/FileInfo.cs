@@ -8,6 +8,7 @@ namespace Clarin
     class FileInfo
     {
         static readonly string[] ContentExt = {".html", ".htm", ".md", ".xml"};
+        private static readonly Dictionary<string, string> ExtMappings = new Dictionary<string, string> { {".md", ".html"} };
 
         public Site Site { get; private set; }
         public string Path { get; private set; }
@@ -18,11 +19,14 @@ namespace Clarin
             get
             {
                 var relPath = Site.MakeRelative (Path, Site.ContentPath);
-                var destPath = System.IO.Path.GetDirectoryName (System.IO.Path.Combine (Site.OutputPath, relPath));
+                if (!IsContent)
+                    return System.IO.Path.Combine (Site.OutputPath, relPath);
 
-                return IsContent
-                    ? System.IO.Path.Combine (destPath, Meta.Get ("slug") + ".html")
-                    : System.IO.Path.Combine (Site.OutputPath, relPath);
+                var destPath = System.IO.Path.GetDirectoryName (System.IO.Path.Combine (Site.OutputPath, relPath));
+                string ext = System.IO.Path.GetExtension (Path);
+                if (ExtMappings.TryGetValue (ext, out var mapping))
+                    ext = mapping;
+                return System.IO.Path.Combine (destPath, Meta.Get ("slug") + ext);
             }
         }
 
