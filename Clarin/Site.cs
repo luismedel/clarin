@@ -171,7 +171,7 @@ namespace Clarin
             });
 
             text = _rref.Replace (text, m => {
-                var f = _files.FirstOrDefault (f => f.Meta.Get ("slug").Equals (m.Groups[1].Value));
+                var f = _files.FirstOrDefault (f => (f.Meta?.Get ("slug") ?? string.Empty).Equals (m.Groups[1].Value));
                 return f?.Url ?? string.Empty;
             });
 
@@ -197,7 +197,7 @@ namespace Clarin
                 sb.Append (ExpandMeta (pattern, fmeta));
             }
 
-            return sb.ToString ();
+            return sb.ToString();
         }
 
         public void EmitFile (string path)
@@ -341,7 +341,8 @@ namespace Clarin
         IEnumerable<FileInfo> EnumerateFiles ()
         {
             return Directory.EnumerateFiles (ContentPath, "*", SearchOption.AllDirectories)
-                            .Where (s => !Path.GetFileNameWithoutExtension (s).StartsWith ("_"))
+                            .Where(s => !Path.GetFileNameWithoutExtension(s).StartsWith("_"))
+                            .Where(s => !Path.GetFileNameWithoutExtension(s).StartsWith("."))
                             .Select (path => new FileInfo (this, Path.GetFullPath (path)))
                             .Where (f => !f.IsContent || (f.IsContent && !f.Meta.Get ("draft")
                                                                            .Equals (

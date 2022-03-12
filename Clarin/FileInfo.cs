@@ -106,6 +106,6 @@ namespace Clarin
 
         public override string ToString () => Path;
 
-        readonly MetaDict _meta;
+        readonly MetaDict _meta = new MetaDict();
     }
 }
