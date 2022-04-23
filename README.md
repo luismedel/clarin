@@ -78,7 +78,8 @@ You can add as many metadata fields as you want. Just remember that:
 * Clarin won't render content with ```draft:true```.
 * The field ```category``` is needed for index tags to work (explained later).
 
-Also, Clarin ignores any file starting with an underscore, like ```_20220131-draft.md```.
+Also, Clarin ignores any file starting with an underscore or dot, like ```_20220131-draft.md``` and ```.another-draft.md```.
+If you want to ignore the full contents of a directory, place an empty file named ```.clarinignore``` in it.
 
 ### Add new content
 
