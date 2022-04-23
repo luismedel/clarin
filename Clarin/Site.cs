@@ -341,14 +341,17 @@ namespace Clarin
         IEnumerable<FileInfo> EnumerateFiles ()
         {
             return Directory.EnumerateFiles (ContentPath, "*", SearchOption.AllDirectories)
-                            .Where(s => !Path.GetFileNameWithoutExtension(s).StartsWith("_"))
-                            .Where(s => !Path.GetFileNameWithoutExtension(s).StartsWith("."))
+                            // Ignore full directories where we find a .clarinignore file
+                            .Where (path => !File.Exists (Path.Combine (Path.GetFullPath (path), ".clarinignore")))
+
+                            // Ignore files starting with '.' and '_'
+                            .Where (path => !Path.GetFileNameWithoutExtension(path).StartsWith("_"))
+                            .Where (path => !Path.GetFileNameWithoutExtension(path).StartsWith("."))
+
                             .Select (path => new FileInfo (this, Path.GetFullPath (path)))
-                            .Where (f => !f.IsContent || (f.IsContent && !f.Meta.Get ("draft")
-                                                                           .Equals (
-                                                                               "true",
-                                                                               StringComparison
-                                                                                   .InvariantCultureIgnoreCase)));
+
+                            // Ignore non content and draft files
+                            .Where (f => !f.IsContent || (f.IsContent && !f.Meta.Get ("draft").Equals ("true",StringComparison.InvariantCultureIgnoreCase)));
         }
 
         static bool TryParseDate (string date, out DateTime result)
