@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 
-namespace Clarin
+namespace Clarin.IO
 {
     class FileInfo
     {

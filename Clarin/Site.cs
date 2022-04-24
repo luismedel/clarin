@@ -18,7 +18,7 @@ namespace Clarin
         public string Url => _meta.Get ("url");
         public MetaDict Meta => _meta;
 
-        List<FileInfo> Files
+        List<IO.FileInfo> Files
         {
             get
             {
@@ -202,20 +202,19 @@ namespace Clarin
 
         public void EmitFile (string path)
         {
-            FileInfo finfo = Files.FirstOrDefault (f => f.Path.Equals (path));
+            IO.FileInfo finfo = Files.FirstOrDefault (f => f.Path.Equals (path));
             if (finfo != null)
                 Files.Remove (finfo);
 
-            finfo = new FileInfo (this, path);
+            finfo = new IO.FileInfo (this, path);
             Files.Add (finfo);
 
             EmitFile (finfo);
         }
 
-        public void EmitFile (FileInfo finfo)
+        public void EmitFile (IO.FileInfo finfo)
         {
             Log.Info ($"Emiting file {finfo.Path}...");
-            Log.Indent ();
 
             var output = finfo.OutputPath;
             EnsurePathExists (Path.GetDirectoryName (output));
@@ -226,7 +225,8 @@ namespace Clarin
 
                 try
                 {
-                    if (File.Exists (output)) File.Delete (output);
+                    if (File.Exists (output))
+                        File.Delete (output);
                 }
                 catch (IOException ex)
                 {
@@ -242,7 +242,6 @@ namespace Clarin
                     Log.Error (ex.Message);
                 }
 
-                Log.Unindent ();
                 return;
             }
 
@@ -256,9 +255,7 @@ namespace Clarin
             if (ext.Equals (".md", StringComparison.InvariantCultureIgnoreCase))
             {
                 Log.Info ($"> Rendering markdown content...");
-                Log.Indent ();
                 meta["content"] = RenderMarkdown (meta.Get ("content"));
-                Log.Unindent ();
                 ext = ".html";
             }
 
@@ -273,7 +270,6 @@ namespace Clarin
             Log.Info ($"> Writing contents to {foutput}...");
             File.WriteAllText (foutput, meta.Get ("content"));
 
-            Log.Unindent ();
             Log.Info ($"> Done.");
         }
 
@@ -338,20 +334,17 @@ namespace Clarin
             }
         }
 
-        IEnumerable<FileInfo> EnumerateFiles ()
+        IEnumerable<IO.FileInfo> EnumerateFiles()
         {
-            return Directory.EnumerateFiles (ContentPath, "*", SearchOption.AllDirectories)
-                            // Ignore full directories where we find a .clarinignore file
-                            .Where (path => !File.Exists (Path.Combine (Path.GetFullPath (path), ".clarinignore")))
+            return IO.DirectoryWalker.EnumerateFiles(ContentPath, recursive: true)
+                // Ignore files starting with '.' and '_'
+                .Where(path => !Path.GetFileNameWithoutExtension(path).StartsWith("_")
+                            && !Path.GetFileNameWithoutExtension(path).StartsWith("."))
 
-                            // Ignore files starting with '.' and '_'
-                            .Where (path => !Path.GetFileNameWithoutExtension(path).StartsWith("_"))
-                            .Where (path => !Path.GetFileNameWithoutExtension(path).StartsWith("."))
+                .Select(path => new IO.FileInfo(this, Path.GetFullPath(path)))
 
-                            .Select (path => new FileInfo (this, Path.GetFullPath (path)))
-
-                            // Ignore non content and draft files
-                            .Where (f => !f.IsContent || (f.IsContent && !f.Meta.Get ("draft").Equals ("true",StringComparison.InvariantCultureIgnoreCase)));
+                // Ignore non content and draft files
+                .Where(f => !f.IsContent || (f.IsContent && !f.Meta.Get("draft").Equals("true", StringComparison.InvariantCultureIgnoreCase)));
         }
 
         static bool TryParseDate (string date, out DateTime result)
@@ -373,7 +366,7 @@ namespace Clarin
                 {"rfc822",   (site, s) => TryParseDate (s, out var dt) ? dt.ToString ("r") : s},
             };
 
-        List<FileInfo> _files;
+        List<IO.FileInfo> _files;
 
         bool _parsed;
         readonly MetaDict _meta;
