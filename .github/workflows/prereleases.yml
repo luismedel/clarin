@@ -31,7 +31,7 @@ jobs:
     - name: Test
       run: dotnet test --no-build --verbosity normal
     - name: Publish
-      run: dotnet publish -c Release -r ${{ matrix.target }} -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./${{ matrix.platform }}-${{ matrix.arch }}
+      run: dotnet publish -c Release -r ${{ matrix.target }} -p:PublishTrimmed=true -p:PublishSingleFile=true -p:PublishReadyToRun=true --self-contained true --output ./${{ matrix.target }}
     - uses: "marvinpinto/action-automatic-releases@4edd7a5aabb1bc62e6dc99b3302d587bf3134e20"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
