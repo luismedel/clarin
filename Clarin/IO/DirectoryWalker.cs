@@ -6,34 +6,25 @@ namespace Clarin.IO
 {
     public static class DirectoryWalker
     {
-        public static IEnumerable<string> EnumerateDirectories (string path, bool recursive=false, bool force=false)
+        public static IEnumerable<string> EnumerateDirectories (string path)
         {
-            var queue = new Queue<string> (new[] { path });
-            var so = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+            yield return path;
 
-            while (queue.Count > 0)
+            foreach (var subdir in Directory.EnumerateDirectories(path, "*", SearchOption.AllDirectories))
             {
-                var current = queue.Dequeue();
-                if (!force && File.Exists(Path.Combine(current, ".clarinignore")))
+                if (File.Exists(Path.Combine(subdir, ".clarinignore")))
                     continue;
 
-                foreach (var s in Directory.EnumerateDirectories(current, "*", so))
-                {
-                    queue.Enqueue(s);
-                    yield return s;
-                }
+                yield return subdir;
             }
         }
 
-        public static IEnumerable<string> EnumerateFiles (string path, bool recursive = false, bool force = false)
+        public static IEnumerable<string> EnumerateFiles (string path)
         {
-            var so = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-
-            foreach (var dir in EnumerateDirectories (path, recursive, force))
+            foreach (var dir in EnumerateDirectories (path))
             {
-                foreach (var file in Directory.EnumerateFiles(dir, "*", so))
+                foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.TopDirectoryOnly))
                     yield return file;
-
             }
         }
     }
