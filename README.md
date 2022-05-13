@@ -1,6 +1,6 @@
 ![Image](./logo-w480.png)
 
-Clarin is a simple, zero-dependency, dogmatic static website generator written in C#.
+Clarin is a simple, ~~zero-dependency~~, dogmatic static website generator written in C#.
 
 Clarin takes a directory with content files and templates and renders them into a static HTML website. No more. No less.
 
@@ -8,7 +8,7 @@ Clarin takes a directory with content files and templates and renders them into 
 
 Clarin isn’t flexible, nor optimized for speed, ease of use or configurability. It was modelled to satisfy [*my*](https://luismedel.com) personal needs and preferences (which could be yours' too if you're lucky enough!)
 
-* I don't want to mess with runtimes, ~~containers~~, databases nor dependency trees.
+* I don't want to mess with runtimes, ~~containers~~, databases nor ~~dependency trees~~.
 * I don't want to study a new templating system, a npm/yarn/bundler/whatever based build system, how to integrate with LESS...and whatnot, only to know if a generator is suited for me.
 * I only want to take a bunch of .html or .md files and get them converted to a site, with minimal effort and complexity *from the start*.
 
@@ -313,25 +313,6 @@ You can include the snippet in other templates using the ```{%inc|template%}``` 
 	</body>
 </html>
 ```
-
-### A note on Markdown rendering
-
-Clarin uses the [Github Markdown API](https://docs.github.com/en/rest/reference/markdown) to render Markdown files. If you don't want your content to be sent to a third party service **don't use Markdown or don't use Clarin**.
-
-By default, Github [limits](https://docs.github.com/en/enterprise-server@3.1/rest/overview/resources-in-the-rest-api#rate-limiting) unauthenticated requests to it's API to 60 per hour and authenticated ones to 5000 per hour.
-
-You can use a [personal access token (PAT)](https://docs.github.com/es/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) to authenticate Clarin against the Github API.
-
-To do so, put your Github username and your PAT in the following environment variables.
-
-```sh
-CLARIN_GHUSER = "<your GH user>"
-CLARIN_GHTOKEN = "<your PAT>"
-```
-
-Alternatively, you can put them on a ```.env``` file in your site root (the same with the ```site.ini``` file) and Clarin will load it when needed.
-
-Remind to add that file to your .gitignore! 😀
 
 ### Build your site
 
