@@ -329,7 +329,7 @@ See the example site included.
 
 ### Docker image
 
-There's a [Docker image](https://hub.docker.com/repository/docker/luismedel/clarin/) you can run to use Clarin without headaches.
+There's a [Docker image](https://hub.docker.com/r/luismedel/clarin) you can run to use Clarin without headaches.
 
 Suppose you have your site in ```/home/johndoe/site```. Simply run:
 
