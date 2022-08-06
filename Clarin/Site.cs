@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
+using Markdig;
 
 namespace Clarin
 {
@@ -275,63 +276,7 @@ namespace Clarin
 
         string RenderMarkdown (string text)
         {
-            try
-            {
-                if (_httpClient == null)
-                {
-                    var ghusername = Env ("CLARIN_GHUSER");
-                    var ghtoken = Env ("CLARIN_GHTOKEN");
-
-                    _httpClient = new HttpClient ();
-                    if (!string.IsNullOrWhiteSpace (ghusername) && !string.IsNullOrWhiteSpace (ghtoken))
-                    {
-                        var auth = Encoding.ASCII.GetBytes ($"{ghusername}:{ghtoken}");
-                        _httpClient.DefaultRequestHeaders.Authorization =
-                            new System.Net.Http.Headers.AuthenticationHeaderValue (
-                                "Basic", Convert.ToBase64String (auth));
-                        Log.Info ($"> Using authenticated Github requests as {ghusername}.");
-                    }
-                    else
-                        Log.Info ($"> Using unauthenticated Github requests.");
-                }
-
-                using (var req = new HttpRequestMessage (HttpMethod.Post, "https://api.github.com/markdown/raw"))
-                {
-                    req.Headers.Add ("User-Agent", "Clarin (https://github.com/luismedel/clarin)");
-                    req.Headers.Add ("Accept", "application/vnd.github.v3+json");
-
-                    req.Content = new StringContent (text, Encoding.UTF8, "text/plain");
-
-                    Log.Info ($"> {req.RequestUri}");
-                    var resp = _httpClient.Send (req);
-                    Log.Info ($"> {(int) resp.StatusCode} ({resp.StatusCode})");
-
-                    string result;
-                    using (StreamReader sr = new StreamReader (resp.Content.ReadAsStream ()))
-                        result = sr.ReadToEnd ();
-
-                    if (resp.IsSuccessStatusCode)
-                    {
-                        if (resp.Headers.TryGetValues ("X-RateLimit-Limit", out var reqLimit)
-                            && resp.Headers.TryGetValues ("X-RateLimit-Remaining", out var reqRemaining)
-                            && resp.Headers.TryGetValues ("X-RateLimit-Reset", out var reqReset))
-                            Log.Info (
-                                $"> Remaining requests {reqRemaining.First ()}/{reqLimit.First ()} (reset on {new DateTime (1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds (double.Parse (reqReset.First ())).ToLocalTime ()})");
-
-                        return result;
-                    }
-                    else
-                    {
-                        Log.Warn ($"> {result}");
-                        return text;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error ($" > {ex.Message}");
-                return text;
-            }
+            return Markdown.ToHtml(text);
         }
 
         IEnumerable<IO.FileInfo> EnumerateFiles()
